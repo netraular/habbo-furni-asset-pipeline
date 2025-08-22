@@ -4,7 +4,7 @@ An automated pipeline to download, process, and organize Habbo Hotel assets. Thi
 
 ## The Pipeline Workflow
 
-The entire process is designed as a 5-step pipeline. Each step prepares data for the next, with the final goal of producing a comprehensive and easy-to-use set of assets.
+The entire process is designed as a 4-step pipeline. Each step prepares data for the next, with the final goal of producing a comprehensive and easy-to-use set of assets.
 
 ---
 
@@ -13,36 +13,26 @@ The entire process is designed as a 5-step pipeline. Each step prepares data for
 This initial step is responsible for fetching the raw asset files from Habbo servers.
 
 *   **Primary Method:** The pipeline uses a forked version of **[higoka/habbo-downloader](https://github.com/higoka/habbo-downloader)**, managed as a Git submodule, to execute the downloads.
-*   **Alternative Source 1:** The original `habbo-downloader` repository contains a `resources` folder with a large cache of SWF files that can be used directly as a backup.
-*   **Alternative Source 2:** For a more targeted but slower approach, the **[habbofurni.com API](https://habbofurni.com/)** can also be used to fetch individual assets.
 
-> **Status:** This step is **fully implemented** in `pipeline.py`.
+> **Status:** Fully implemented in `pipeline.py`.
 
 ---
 
-### 🔲 Step 2: Decompress SWF Files
+### ✅ Step 2: Extract, Render & Generate Data
 
-The downloaded `.swf` files are compressed. This step will decompress them to allow access to the raw shapes, sprites, and metadata within.
+This crucial step processes the raw SWF files, extracting their content, rendering assets, and generating structured data files.
 
-> **Status:** Not yet implemented.
-> *Note: A similar project exists for this, but it is currently non-functional and will require adaptation.*
+*   It uses the **[Habbo-SWF-Furni-Extractor](https://github.com/netraular/Habbo-SWF-Furni-Extractor)** project, a custom .NET tool managed as a submodule.
+*   The tool processes all files from `/assets/furnitures` and produces a structured output in `/assets/extracted`, which includes:
+    *   Rendered PNGs of the furni assets.
+    *   `furni.json`: Contains merged XML data describing the furni's logic.
+    *   `renderdata.json`: Contains data needed to reconstruct and render the furni isometrically.
 
----
-
-### 🔲 Step 3: Render Sprites & Generate Data
-
-Once decompressed, the assets inside the SWF files need to be rendered into standard image formats (like PNG) and their configuration data extracted.
-
-*   This step will use a custom script to parse sprite data and generate two key files:
-    1.  `furni.json`: Contains merged XML data describing the furni's logic.
-    2.  `rendering.json`: Contains data needed to reconstruct and render the furni isometrically.
-*   This script is based on concepts from another existing GitHub project for SWF rendering.
-
-> **Status:** Not yet implemented.
+> **Status:** **Fully implemented** in `pipeline.py`.
 
 ---
 
-### 🔲 Step 4: Fetch Metadata from Web API
+### 🔲 Step 3: Fetch Metadata from Web API
 
 To enrich the local data, this step will fetch additional metadata (like release dates, categories, etc.) from an external web API.
 
@@ -50,19 +40,18 @@ To enrich the local data, this step will fetch additional metadata (like release
 
 ---
 
-### 🔲 Step 5: Merge All Data Sources
+### 🔲 Step 4: Merge All Data Sources
 
 This is the final data processing step. A custom script will merge the information from all previous steps into a single, unified data structure.
 
-*   It will combine the local data (`furni.json`) with the downloaded gamedata (from Step 1) and the external API metadata (from Step 4).
+*   It will combine the local data (`furni.json` from Step 2) with the downloaded gamedata (from Step 1) and the external API metadata (from Step 3).
 
 > **Status:** Not yet implemented.
 
 ---
 
 ### Final Output Consumer
-
-The final, clean assets produced by this pipeline are intended to be used by a separate project: an **Isometric Room Decorator**, which will simulate the Habbo room building experience.
+(Section remains the same)
 
 ## Getting Started
 
@@ -71,10 +60,11 @@ The final, clean assets produced by this pipeline are intended to be used by a s
 *   [Git](https://git-scm.com/)
 *   [Node.js](https://nodejs.org/) (which includes npm)
 *   [Python](https://www.python.org/) (version 3.6 or higher)
+*   [.NET SDK](https://dotnet.microsoft.com/download) (version 6.0 or higher)
 
 ### Installation
 
-1.  **Clone the repository with its submodule:**
+1.  **Clone the repository with all submodules:**
     ```sh
     git clone --recurse-submodules https://github.com/netraular/habbo-furni-asset-pipeline.git
     ```
@@ -93,10 +83,35 @@ The final, clean assets produced by this pipeline are intended to be used by a s
 
 ## Usage
 
-Currently, only Step 1 of the pipeline is implemented. To run it:
+You can run the entire pipeline or start from a specific step using the `--start-at` argument.
 
+#### Run the entire pipeline (from Step 1)
 ```sh
 python pipeline.py
 ```
 
-This will create an `/assets` folder and populate it with downloaded and organized files from Habbo servers.
+#### Skip downloads and start from Step 2 (Extraction)
+This is useful if you have already downloaded the assets.
+```sh
+python pipeline.py --start-at 2
+```
+
+## Maintaining the Pipeline
+
+### Updating Dependencies (Submodules)
+
+The submodules in the `dependencies` folder are pinned to a specific commit. If you update one of the dependency projects on GitHub (e.g., you push a new version of `Habbo-SWF-Furni-Extractor`), the pipeline won't use it automatically.
+
+To pull the latest version of a submodule into the pipeline, run the following command from the project's root directory:
+
+```sh
+git submodule update --remote
+```
+
+After running the update, you will see that the submodule reference has changed. You must then commit and push this change to save it:
+
+```sh
+git add .
+git commit -m "chore(deps): update submodule to latest version"
+git push
+```

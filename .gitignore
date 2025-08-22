@@ -1,0 +1,22 @@
+# Directorio de salida para todos los activos descargados
+assets/
+downloads/
+
+# Archivos específicos que no queremos
+*.swf
+*.xml
+*.json
+*.png
+*.gif
+
+# Entornos virtuales de Python
+venv/
+.venv/
+
+# Archivos de caché de Python
+__pycache__/
+*.pyc
+
+# Archivos de configuración de IDE
+.vscode/
+.idea/

@@ -1,73 +1,70 @@
-# Habbo Asset Pipeline
 
-This repository contains an automated pipeline to fetch, process, and organize Habbo furniture assets, preparing them for use in other applications.
+# Habbo Furni Asset Pipeline
 
-The orchestrator is built with Python and coordinates several external tools (managed as Git Submodules) to create a consistent and reliable asset workflow.
+An automated pipeline to download and organize Habbo Hotel assets, such as furniture SWFs and gamedata, into a clean and predictable folder structure.
 
-## 🚀 Getting Started
+## About The Project
+
+This project solves the challenge of managing multiple, disparate tools for fetching Habbo assets. Instead of running separate scripts for downloading, parsing, and rendering, this pipeline acts as a central orchestrator.
+
+It uses a Python script to control a Node.js-based downloader (managed as a Git submodule), ensuring a consistent and repeatable process for acquiring new or updated assets.
+
+### Features
+
+-   **Automated Downloads**: Fetches assets with a single command.
+-   **Furniture SWFs**: Downloads the complete set of furniture SWF files.
+-   **Gamedata**: Downloads essential gamedata files (e.g., `external_flash_texts`, `furnidata`).
+-   **File Organization**: Automatically reorganizes downloaded files into a clean directory structure (`/assets/furnitures`, `/assets/gamedata`).
+-   **Modular Design**: Uses a Git submodule for the downloader, keeping the main project clean and making dependency updates easy.
+
+## Getting Started
+
+Follow these steps to get a local copy up and running.
 
 ### Prerequisites
 
-Before you begin, ensure you have the following installed on your system:
-- [Python 3.8+](https://www.python.org/)
-- [Node.js 15.0+](https://nodejs.org/) (which includes npm)
+You must have the following software installed on your system:
+*   [Git](https://git-scm.com/)
+*   [Node.js](https://nodejs.org/) (which includes npm)
+*   [Python](https://www.python.org/) (version 3.6 or higher)
 
 ### Installation
 
-This project uses **Git Submodules** to manage its dependencies. To clone the repository and its dependencies correctly, use the `--recurse-submodules` flag:
+1.  **Clone the repository with its submodule:**
+    The `--recurse-submodules` flag is essential to also clone the downloader dependency.
+    ```sh
+    git clone --recurse-submodules https://github.com/your-username/habbo-furni-asset-pipeline.git
+    ```
 
-```bash
-git clone --recurse-submodules https://github.com/your-username/habbo-asset-pipeline.git
-cd habbo-asset-pipeline
+2.  **Navigate into the project directory:**
+    ```sh
+    cd habbo-furni-asset-pipeline
+    ```
+
+3.  **Install the downloader's dependencies:**
+    The downloader is a Node.js project and requires its own packages.
+    ```sh
+    cd dependencies/habbo-asset-downloader
+    npm install
+    cd ../..
+    ```
+
+## Usage
+
+Once the installation is complete, you can run the entire pipeline with a single command from the project's root directory:
+
+```sh
+python pipeline.py
 ```
 
-If you have already cloned the repository without the submodules, you can initialize them with this command:
+The script will create an `assets` folder in the project root and populate it with the downloaded and organized files. The final structure will look like this:
 
-```bash
-git submodule update --init --recursive
 ```
-
-## 🛠️ Usage
-
-The entire pipeline is controlled by the main orchestrator script. The first time you run it, it will automatically install the necessary Node.js dependencies for its tools.
-
-To run the full pipeline, execute the following command from the root of the project:
-
-```bash
-python main_orchestrator.py
+habbo-furni-asset-pipeline/
+├── assets/
+│   ├── furnitures/
+│   │   └── (all .swf files)
+│   └── gamedata/
+│       └── (all gamedata files)
+└── ...
 ```
-
-This will begin the process of fetching and processing all required assets, placing the final output in the `habbo_assets` directory.
-
----
-
-## 📚 Pipeline Workflow & Backup Methods
-
-This pipeline is designed to be resilient. For critical steps, alternative methods are documented in case the primary tool fails.
-
-### Step 1: Download SWF Files
-
--   **Primary Method:** The pipeline uses [higoka/habbo-downloader](https://github.com/higoka/habbo-downloader) to efficiently download all furniture `.swf` files from Habbo's servers. This is the fastest and most comprehensive method for bulk downloads.
-
--   **Backup Method:** If the primary downloader fails or you need a specific furni quickly, you can use the public API provided by [habbofurni.com](https://habbofurni.com/). Note that this method is significantly slower for bulk downloads and should be used as a fallback.
-
-### Step 2: Decompress SWF Files
-*(Coming soon...)*
-
-### Step 3: Render Sprites & Generate Data
-*(Coming soon...)*
-
-### Step 4: Fetch Metadata from Web API
-*(Coming soon...)*
-
-### Step 5: Merge All Data Sources
-*(Coming soon...)*
-
----
-
-## 📂 Project Structure
-
--   `main_orchestrator.py`: The main Python script that controls the entire pipeline.
--   `dependencies/`: Contains all external tools, managed as Git submodules. These are not part of this repository's source code but are essential for its operation.
--   `habbo_assets/`: The output directory where all final, processed assets will be stored. This folder is ignored by Git.
--   `README.md`: This file.

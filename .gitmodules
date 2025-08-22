@@ -1,3 +1,6 @@
 [submodule "dependencies/habbo-asset-downloader"]
 	path = dependencies/habbo-asset-downloader
 	url = https://github.com/netraular/habbo-asset-downloader.git
+[submodule "dependencies/Habbo-SWF-Furni-Extractor"]
+	path = dependencies/Habbo-SWF-Furni-Extractor
+	url = https://github.com/netraular/Habbo-SWF-Furni-Extractor.git

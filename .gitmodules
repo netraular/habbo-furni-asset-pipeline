@@ -1,0 +1,3 @@
+[submodule "dependencies/habbo-asset-downloader"]
+	path = dependencies/habbo-asset-downloader
+	url = https://github.com/netraular/habbo-asset-downloader.git

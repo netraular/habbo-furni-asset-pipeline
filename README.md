@@ -1,29 +1,73 @@
-
 # Habbo Furni Asset Pipeline
 
-An automated pipeline to download and organize Habbo Hotel assets, such as furniture SWFs and gamedata, into a clean and predictable folder structure.
+An automated pipeline to download, process, and organize Habbo Hotel assets. This project orchestrates a multi-step workflow to transform raw game files into a usable format for applications like room decorators.
 
-## About The Project
+## The Pipeline Workflow
 
-This project solves the challenge of managing multiple, disparate tools for fetching Habbo assets. Instead of running separate scripts for downloading, parsing, and rendering, this pipeline acts as a central orchestrator.
+The entire process is designed as a 5-step pipeline. Each step prepares data for the next, with the final goal of producing a comprehensive and easy-to-use set of assets.
 
-It uses a Python script to control a Node.js-based downloader (managed as a Git submodule), ensuring a consistent and repeatable process for acquiring new or updated assets.
+---
 
-### Features
+### ✅ Step 1: Download SWF Files & Gamedata
 
--   **Automated Downloads**: Fetches assets with a single command.
--   **Furniture SWFs**: Downloads the complete set of furniture SWF files.
--   **Gamedata**: Downloads essential gamedata files (e.g., `external_flash_texts`, `furnidata`).
--   **File Organization**: Automatically reorganizes downloaded files into a clean directory structure (`/assets/furnitures`, `/assets/gamedata`).
--   **Modular Design**: Uses a Git submodule for the downloader, keeping the main project clean and making dependency updates easy.
+This initial step is responsible for fetching the raw asset files from Habbo servers.
+
+*   **Primary Method:** The pipeline uses a forked version of **[higoka/habbo-downloader](https://github.com/higoka/habbo-downloader)**, managed as a Git submodule, to execute the downloads.
+*   **Alternative Source 1:** The original `habbo-downloader` repository contains a `resources` folder with a large cache of SWF files that can be used directly as a backup.
+*   **Alternative Source 2:** For a more targeted but slower approach, the **[habbofurni.com API](https://habbofurni.com/)** can also be used to fetch individual assets.
+
+> **Status:** This step is **fully implemented** in `pipeline.py`.
+
+---
+
+### 🔲 Step 2: Decompress SWF Files
+
+The downloaded `.swf` files are compressed. This step will decompress them to allow access to the raw shapes, sprites, and metadata within.
+
+> **Status:** Not yet implemented.
+> *Note: A similar project exists for this, but it is currently non-functional and will require adaptation.*
+
+---
+
+### 🔲 Step 3: Render Sprites & Generate Data
+
+Once decompressed, the assets inside the SWF files need to be rendered into standard image formats (like PNG) and their configuration data extracted.
+
+*   This step will use a custom script to parse sprite data and generate two key files:
+    1.  `furni.json`: Contains merged XML data describing the furni's logic.
+    2.  `rendering.json`: Contains data needed to reconstruct and render the furni isometrically.
+*   This script is based on concepts from another existing GitHub project for SWF rendering.
+
+> **Status:** Not yet implemented.
+
+---
+
+### 🔲 Step 4: Fetch Metadata from Web API
+
+To enrich the local data, this step will fetch additional metadata (like release dates, categories, etc.) from an external web API.
+
+> **Status:** Not yet implemented.
+
+---
+
+### 🔲 Step 5: Merge All Data Sources
+
+This is the final data processing step. A custom script will merge the information from all previous steps into a single, unified data structure.
+
+*   It will combine the local data (`furni.json`) with the downloaded gamedata (from Step 1) and the external API metadata (from Step 4).
+
+> **Status:** Not yet implemented.
+
+---
+
+### Final Output Consumer
+
+The final, clean assets produced by this pipeline are intended to be used by a separate project: an **Isometric Room Decorator**, which will simulate the Habbo room building experience.
 
 ## Getting Started
 
-Follow these steps to get a local copy up and running.
-
 ### Prerequisites
 
-You must have the following software installed on your system:
 *   [Git](https://git-scm.com/)
 *   [Node.js](https://nodejs.org/) (which includes npm)
 *   [Python](https://www.python.org/) (version 3.6 or higher)
@@ -31,9 +75,8 @@ You must have the following software installed on your system:
 ### Installation
 
 1.  **Clone the repository with its submodule:**
-    The `--recurse-submodules` flag is essential to also clone the downloader dependency.
     ```sh
-    git clone --recurse-submodules https://github.com/your-username/habbo-furni-asset-pipeline.git
+    git clone --recurse-submodules https://github.com/netraular/habbo-furni-asset-pipeline.git
     ```
 
 2.  **Navigate into the project directory:**
@@ -42,7 +85,6 @@ You must have the following software installed on your system:
     ```
 
 3.  **Install the downloader's dependencies:**
-    The downloader is a Node.js project and requires its own packages.
     ```sh
     cd dependencies/habbo-asset-downloader
     npm install
@@ -51,20 +93,10 @@ You must have the following software installed on your system:
 
 ## Usage
 
-Once the installation is complete, you can run the entire pipeline with a single command from the project's root directory:
+Currently, only Step 1 of the pipeline is implemented. To run it:
 
 ```sh
 python pipeline.py
 ```
 
-The script will create an `assets` folder in the project root and populate it with the downloaded and organized files. The final structure will look like this:
-
-```
-habbo-furni-asset-pipeline/
-├── assets/
-│   ├── furnitures/
-│   │   └── (all .swf files)
-│   └── gamedata/
-│       └── (all gamedata files)
-└── ...
-```
+This will create an `/assets` folder and populate it with downloaded and organized files from Habbo servers.

@@ -1,55 +1,58 @@
 # Habbo Furni Asset Pipeline
 
-An automated pipeline to download, process, and organize Habbo Hotel assets. This project orchestrates a multi-step workflow to transform raw game files into a usable format for applications like room decorators.
+An automated pipeline to download, process, and organize Habbo Hotel assets. This project orchestrates a multi-step workflow to transform raw game files into a structured, application-ready format.
 
-## The Pipeline Workflow
-
-The entire process is designed as a 4-step pipeline. Each step prepares data for the next, with the final goal of producing a comprehensive and easy-to-use set of assets.
+The entire process is managed by `pipeline.py`, which executes a 4-step workflow. Each step prepares data for the next, with the final goal of producing a comprehensive and easy-to-use set of assets. The output directories are prefixed with the step number (`1_`, `2_`, etc.) to clearly show the data flow.
 
 ---
 
-### ✅ Step 1: Download SWF Files & Gamedata
+### ✅ Step 1: Download Raw Assets
 
-This initial step is responsible for fetching the raw asset files from Habbo servers.
+This initial step fetches the raw asset files from Habbo servers.
 
-*   **Primary Method:** The pipeline uses a forked version of **[higoka/habbo-downloader](https://github.com/higoka/habbo-downloader)**, managed as a Git submodule, to execute the downloads.
-*   **Output:** Raw `.swf` files are saved to `/assets/furnitures`, and gamedata files to `/assets/gamedata`.
+*   **Method:** Uses **[habbo-asset-downloader](https://github.com/higoka/habbo-downloader)** (as a submodule) to download files.
+*   **Output:**
+    *   Raw `.swf` files are saved to `/assets/1_furnitures_raw`.
+    *   Gamedata files (like `furnidata.txt`) are saved to `/assets/1_gamedata_raw`.
 
-> **Status:** Fully implemented in `pipeline.py`.
+> **Status:** Fully implemented.
 
 ---
 
 ### ✅ Step 2: Extract, Render & Generate Data
 
-This crucial step processes the raw SWF files downloaded in Step 1. It extracts their content, renders visual assets (images, animations), and generates structured data files.
+This crucial step processes the raw SWF files from Step 1. It extracts their content, renders visual assets (images, icons), and generates structured data.
 
-*   It uses the **[Habbo-SWF-Furni-Extractor](https://github.com/netraular/Habbo-SWF-Furni-Extractor)** project, a custom .NET tool managed as a submodule.
-*   The tool processes all files from `/assets/furnitures` and produces a structured output in `/assets/extracted`, including PNGs, GIFs, and local `furni.json` files.
+*   **Method:** Uses the **[Habbo-SWF-Furni-Extractor](https://github.com/netraular/Habbo-SWF-Furni-Extractor)** project (a custom .NET tool managed as a submodule).
+*   **Output:** A structured directory for each furni is created in `/assets/2_extracted_swf_data`. Each subdirectory contains PNGs, GIFs, and local data files like `furni.json` and `renderdata.json`.
 
-> **Status:** **Fully implemented** in `pipeline.py`.
+> **Status:** Fully implemented.
 
 ---
 
 ### ✅ Step 3: Fetch & Process API Metadata
 
-To enrich the locally extracted data, this step fetches additional metadata (like release dates, categories, and multi-language names/descriptions) from a web API.
+To enrich the locally extracted data, this step fetches additional metadata (like release dates, categories, and multi-language names) from an external API.
 
-*   It uses the **[habbo-furni-data-downloader](https://github.com/netraular/habbo-furni-data-downloader)** project, a custom Python tool managed as a submodule, to connect to the **[habbofurni.com API](https://habbofurni.com/)**.
-*   The pipeline downloads data from both the `.com` (English) and `.es` (Spanish) hotels and merges them to create a more complete record.
-*   The final, processed metadata is saved in `/assets/metadata_processed`, where each furni has its own folder containing a `data.json` file.
-*   **Note:** This step only handles JSON metadata. The actual asset files (`.swf`, `.png`) are managed by Steps 1 and 2.
+*   **Method:** Uses the **[habbo-furni-data-downloader](https://github.com/netraular/habbo-furni-data-downloader)** project (a custom Python tool managed as a submodule) to connect to the **[habbofurni.com API](https://habbofurni.com/)**.
+*   The pipeline downloads data, merges English and Spanish sources, and organizes it.
+*   **Output:**
+    *   Raw API responses are saved to `/assets/3_metadata_raw_api`.
+    *   Processed and organized JSON files are saved to `/assets/3_metadata_processed_api`.
 
-> **Status:** **Fully implemented** in `pipeline.py`.
+> **Status:** Fully implemented.
 
 ---
 
-### 🔲 Step 4: Merge All Data Sources
+### ✅ Step 4: Merge All Data Sources
 
-This is the final data processing step. A custom script will merge the information from all previous steps into a single, unified data structure.
+This is the final data processing step. A custom script merges the information from all previous steps into a single, clean, and unified data structure for each furni.
 
-*   It will combine the local data (`furni.json` from Step 2) with the downloaded gamedata (from Step 1) and the external API metadata (from Step 3).
+*   **Method:** A custom Python script (`scripts/merge_furni_data.py`) combines the local data from Step 2 with the external API metadata from Step 3.
+*   It filters out non-renderable items and structures the data for optimal use in applications like an isometric editor.
+*   **Output:** The final, application-ready data is saved in `/assets/4_final_furni_data`. Each furni has its own folder containing a `data.json` file. This is the **definitive output** of the pipeline.
 
-> **Status:** Not yet implemented.
+> **Status:** Fully implemented.
 
 ---
 
@@ -59,7 +62,7 @@ This is the final data processing step. A custom script will merge the informati
 
 *   [Git](https://git-scm.com/)
 *   [Node.js](https://nodejs.org/) (which includes npm)
-*   [Python](https://www.python.org/) (version 3.6 or higher)
+*   [Python](https://www.python.org/) (version 3.8 or higher)
 *   [.NET SDK](https://dotnet.microsoft.com/download) (version 6.0 or higher)
 
 ### Installation
@@ -67,26 +70,22 @@ This is the final data processing step. A custom script will merge the informati
 1.  **Clone the repository with all submodules:**
     ```sh
     git clone --recurse-submodules https://github.com/netraular/habbo-furni-asset-pipeline.git
-    ```
-
-2.  **Navigate into the project directory:**
-    ```sh
     cd habbo-furni-asset-pipeline
     ```
 
-3.  **Install Node.js dependencies:**
+2.  **Install Node.js dependencies:**
     ```sh
     cd dependencies/habbo-asset-downloader && npm install && cd ../..
     ```
 
-4.  **Install Python dependencies:**
+3.  **Install Python dependencies:**
     ```sh
     pip install -r requirements.txt
     ```
 
-5.  **Configure API Token:**
-    *   Rename the `.env.example` file in the project root to `.env`.
-    *   Open the `.env` file and add your API token from `habbofurni.com`.
+4.  **Configure API Token:**
+    *   Rename `.env.example` to `.env`.
+    *   Open `.env` and add your API token from `habbofurni.com`.
     ```env
     HABBOFURNI_API_TOKEN="your_token_here"
     ```
@@ -100,30 +99,25 @@ You can run the entire pipeline or start from a specific step using the `--start
 python pipeline.py
 ```
 
-#### Skip to Step 2 (Extraction & Rendering)
+#### Skip to Step 2 (Extraction)
 ```sh
 python pipeline.py --start-at 2
 ```
 
-#### Skip to Step 3 (Metadata Download & Processing)
+#### Run only the final merge (Step 4)
 ```sh
-python pipeline.py --start-at 3
+python pipeline.py --start-at 4
 ```
 
 ## Maintaining the Pipeline
 
 ### Updating Dependencies (Submodules)
 
-The submodules in the `dependencies` folder are pinned to a specific commit. If you update one of the dependency projects on GitHub, the pipeline won't use it automatically.
-
 To pull the latest version of a submodule, run the following command from the project's root directory:
-
 ```sh
 git submodule update --remote
 ```
-
-After running the update, you must commit and push the change to save the new reference:
-
+After updating, commit the change to save the new reference:
 ```sh
 git add .
 git commit -m "chore(deps): update submodule to latest version"

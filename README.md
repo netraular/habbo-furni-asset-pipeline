@@ -15,8 +15,6 @@ This initial step fetches the raw asset files from Habbo servers.
     *   Raw `.swf` files are saved to `/assets/1_furnitures_raw`.
     *   Gamedata files (like `furnidata.txt`) are saved to `/assets/1_gamedata_raw`.
 
-> **Status:** Fully implemented.
-
 ---
 
 ### ✅ Step 2: Extract, Render & Generate Data
@@ -25,8 +23,6 @@ This crucial step processes the raw SWF files from Step 1. It extracts their con
 
 *   **Method:** Uses the **[Habbo-SWF-Furni-Extractor](https://github.com/netraular/Habbo-SWF-Furni-Extractor)** project (a custom .NET tool managed as a submodule).
 *   **Output:** A structured directory for each furni is created in `/assets/2_extracted_swf_data`. Each subdirectory contains PNGs, GIFs, and local data files like `furni.json` and `renderdata.json`.
-
-> **Status:** Fully implemented.
 
 ---
 
@@ -40,19 +36,35 @@ To enrich the locally extracted data, this step fetches additional metadata (lik
     *   Raw API responses are saved to `/assets/3_metadata_raw_api`.
     *   Processed and organized JSON files are saved to `/assets/3_metadata_processed_api`.
 
-> **Status:** Fully implemented.
-
 ---
 
-### ✅ Step 4: Merge All Data Sources
+### ✅ Step 4: Create Self-Contained Furni Packages
 
-This is the final data processing step. A custom script merges the information from all previous steps into a single, clean, and unified data structure for each furni.
+This is the final and most important step. It merges all data and assets from the previous steps into clean, portable, and application-ready packages.
 
-*   **Method:** A custom Python script (`scripts/merge_furni_data.py`) combines the local data from Step 2 with the external API metadata from Step 3.
-*   It filters out non-renderable items and structures the data for optimal use in applications like an isometric editor.
-*   **Output:** The final, application-ready data is saved in `/assets/4_final_furni_data`. Each furni has its own folder containing a `data.json` file. This is the **definitive output** of the pipeline.
+*   **Method:** A custom Python script (`scripts/merge_furni_data.py`) performs an **asset-driven merge**:
+    *   It reads the local `furni.json` from Step 2 to identify all possible color variations for an object.
+    *   For each variation, it finds the corresponding API metadata from Step 3.
+    *   It copies all necessary visual assets (icons and rendered images) into a new, organized structure.
+    *   All paths within the final `data.json` are relative, making each package completely self-contained.
 
-> **Status:** Fully implemented.
+*   **Output:** The final, application-ready data is saved in `/assets/4_final_furni_data`. Each furni has its own folder which acts as a complete package, containing:
+    *   A central `data.json` file with all merged metadata.
+    *   An `icons/` subfolder with all variant icons.
+    *   A `renders/` subfolder with all variant renders.
+
+    This structure is the **definitive output** of the pipeline. For example:
+    ```
+    /assets/4_final_furni_data/
+    └── rare_dragonlamp/
+        ├── data.json
+        ├── icons/
+        │   ├── rare_dragonlamp_icon_0.png
+        │   └── rare_dragonlamp_icon_1.png
+        └── renders/
+            ├── rare_dragonlamp_dir_2_0_no_sd.png
+            └── rare_dragonlamp_dir_4_0_no_sd.png
+    ```
 
 ---
 
@@ -98,12 +110,6 @@ You can run the entire pipeline or start from a specific step using the `--start
 ```sh
 python pipeline.py
 ```
-
-#### Skip to Step 2 (Extraction)
-```sh
-python pipeline.py --start-at 2
-```
-
 #### Run only the final merge (Step 4)
 ```sh
 python pipeline.py --start-at 4

@@ -13,6 +13,7 @@ The entire process is designed as a 4-step pipeline. Each step prepares data for
 This initial step is responsible for fetching the raw asset files from Habbo servers.
 
 *   **Primary Method:** The pipeline uses a forked version of **[higoka/habbo-downloader](https://github.com/higoka/habbo-downloader)**, managed as a Git submodule, to execute the downloads.
+*   **Output:** Raw `.swf` files are saved to `/assets/furnitures`, and gamedata files to `/assets/gamedata`.
 
 > **Status:** Fully implemented in `pipeline.py`.
 
@@ -20,22 +21,23 @@ This initial step is responsible for fetching the raw asset files from Habbo ser
 
 ### ✅ Step 2: Extract, Render & Generate Data
 
-This crucial step processes the raw SWF files, extracting their content, rendering assets, and generating structured data files.
+This crucial step processes the raw SWF files downloaded in Step 1. It extracts their content, renders visual assets (images, animations), and generates structured data files.
 
 *   It uses the **[Habbo-SWF-Furni-Extractor](https://github.com/netraular/Habbo-SWF-Furni-Extractor)** project, a custom .NET tool managed as a submodule.
-*   The tool processes all files from `/assets/furnitures` and produces a structured output in `/assets/extracted`.
+*   The tool processes all files from `/assets/furnitures` and produces a structured output in `/assets/extracted`, including PNGs, GIFs, and local `furni.json` files.
 
 > **Status:** **Fully implemented** in `pipeline.py`.
 
 ---
 
-### ✅ Step 3: Fetch Metadata from Web API
+### ✅ Step 3: Fetch & Process API Metadata
 
-To enrich the local data, this step fetches additional metadata (like release dates, categories, etc.) from the **[habbofurni.com API](https://habbofurni.com/)**.
+To enrich the locally extracted data, this step fetches additional metadata (like release dates, categories, and multi-language names/descriptions) from a web API.
 
-*   It uses the **[habbo-furni-data-downloader](https://github.com/netraular/habbo-furni-data-downloader)** project, a custom Python tool managed as a submodule.
-*   The pipeline automatically downloads the necessary data from the `.com` and `.es` hotels.
-*   It then processes and merges this data, creating a structured database in `/assets/metadata_processed`, where each furni has its own folder containing a `data.json` file.
+*   It uses the **[habbo-furni-data-downloader](https://github.com/netraular/habbo-furni-data-downloader)** project, a custom Python tool managed as a submodule, to connect to the **[habbofurni.com API](https://habbofurni.com/)**.
+*   The pipeline downloads data from both the `.com` (English) and `.es` (Spanish) hotels and merges them to create a more complete record.
+*   The final, processed metadata is saved in `/assets/metadata_processed`, where each furni has its own folder containing a `data.json` file.
+*   **Note:** This step only handles JSON metadata. The actual asset files (`.swf`, `.png`) are managed by Steps 1 and 2.
 
 > **Status:** **Fully implemented** in `pipeline.py`.
 
@@ -50,8 +52,6 @@ This is the final data processing step. A custom script will merge the informati
 > **Status:** Not yet implemented.
 
 ---
-
-### Final Output Consumer
 
 ## Getting Started
 
@@ -105,7 +105,7 @@ python pipeline.py
 python pipeline.py --start-at 2
 ```
 
-#### Skip to Step 3 (Metadata Download)
+#### Skip to Step 3 (Metadata Download & Processing)
 ```sh
 python pipeline.py --start-at 3
 ```

@@ -31,8 +31,7 @@ HABBOFURNI_API_TOKEN = os.getenv("HABBOFURNI_API_TOKEN")
 sys.path.append(str(METADATA_DOWNLOADER_DIR))
 try:
     from download_furni_data import download_furni_by_hotel, HOTELS
-    # --- LA LÍNEA CORREGIDA ESTÁ AQUÍ ---
-    from process_furni import process_and_save_furni, sanitize_filename
+    from process_furni import process_and_save_furni
 except ImportError as e:
     print(f"Error importando los scripts del submodule: {e}")
     print("Asegúrate de que el submodule está en la ruta correcta y los archivos .py existen.")
@@ -127,30 +126,43 @@ def run_step_2_extract():
         sys.exit(1)
 
 def run_step_3_fetch_metadata():
-    """Descarga y procesa metadata de la API de HabboFurni.com."""
-    print("\n--- [Step 3] Iniciando descarga de metadata desde API ---")
+    """
+    Descarga y procesa metadatos (en formato JSON) desde la API de HabboFurni.com.
+    Este paso NO descarga los archivos SWF o iconos, ya que eso se gestiona en los pasos 1 y 2.
+    """
+    print("\n--- [Step 3] Iniciando descarga y procesamiento de metadata desde API ---")
 
     if not HABBOFURNI_API_TOKEN:
         print("❌ ERROR: La variable de entorno 'HABBOFURNI_API_TOKEN' no está configurada.")
         print("Por favor, crea un archivo .env en la raíz del proyecto y añade tu token.")
         sys.exit(1)
     
-    if METADATA_RAW_DIR.exists(): shutil.rmtree(METADATA_RAW_DIR)
-    if METADATA_PROCESSED_DIR.exists(): shutil.rmtree(METADATA_PROCESSED_DIR)
-    METADATA_RAW_DIR.mkdir()
+    # 1. Limpieza de directorios antiguos
+    if METADATA_RAW_DIR.exists():
+        print(f"Limpiando directorio de metadatos brutos anterior: '{METADATA_RAW_DIR}'")
+        shutil.rmtree(METADATA_RAW_DIR)
+    if METADATA_PROCESSED_DIR.exists():
+        print(f"Limpiando directorio de metadatos procesados anterior: '{METADATA_PROCESSED_DIR}'")
+        shutil.rmtree(METADATA_PROCESSED_DIR)
+    METADATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
     
-    print("Descargando datos de Habbo.com...")
+    # 2. Descarga de datos brutos de la API
+    print(f"\nDescargando datos de Habbo.com... (Salida: '{METADATA_RAW_DIR}')")
     hotel_com = next((h for h in HOTELS if h["short_name"] == "COM"), None)
     if not download_furni_by_hotel(hotel_com, HABBOFURNI_API_TOKEN, METADATA_RAW_DIR):
+        print("Fallo al descargar datos de Habbo.com. Abortando.")
         sys.exit(1)
     
-    print("\nDescargando datos de Habbo.es...")
+    print(f"\nDescargando datos de Habbo.es... (Salida: '{METADATA_RAW_DIR}')")
     hotel_es = next((h for h in HOTELS if h["short_name"] == "ES"), None)
     if not download_furni_by_hotel(hotel_es, HABBOFURNI_API_TOKEN, METADATA_RAW_DIR):
+        print("Fallo al descargar datos de Habbo.es. Abortando.")
         sys.exit(1)
 
-    print("\nProcesando y fusionando los datos descargados...")
+    # 3. Procesamiento y fusión de los datos descargados
+    print(f"\nProcesando y fusionando los datos descargados... (Salida: '{METADATA_PROCESSED_DIR}')")
     if not process_and_save_furni(METADATA_RAW_DIR, METADATA_PROCESSED_DIR):
+        print("Fallo al procesar los metadatos. Abortando.")
         sys.exit(1)
     
     print("\n--- Metadata descargada y procesada con éxito. ---")
@@ -158,8 +170,8 @@ def run_step_3_fetch_metadata():
 def main():
     parser = argparse.ArgumentParser(description="Pipeline de orquestación para activos de Habbo.")
     parser.add_argument(
-        '--start-at', type=int, default=1,
-        help='El número del paso por el cual empezar el pipeline (ej: 2 para saltar la descarga).'
+        '--start-at', type=int, default=1, choices=[1, 2, 3],
+        help='El número del paso por el cual empezar el pipeline (1: Descarga, 2: Extracción, 3: Metadata).'
     )
     args = parser.parse_args()
     

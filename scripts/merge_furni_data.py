@@ -1,4 +1,4 @@
-# scripts/merge_furni_data.py (VERSIÓN CON LÓGICA DE BASE MEJORADA)
+# scripts/merge_furni_data.py (VERSIÓN FINAL "ASSET-DRIVEN")
 import os
 import json
 import traceback
@@ -10,86 +10,109 @@ from tqdm import tqdm
 EDITOR_ROTATION_MAP = [2, 4, 6, 0]
 
 def index_metadata_files(metadata_dir: Path) -> dict:
-    print("Indexando archivos de metadatos (lógica final)...")
+    """Crea un índice rápido que mapea el nombre de la carpeta de metadatos a su ruta."""
+    print("Indexando archivos de metadatos...")
     metadata_index = {}
-    
     metadata_folders = [d for d in metadata_dir.iterdir() if d.is_dir()]
-
     for folder in tqdm(metadata_folders, desc="Indexando"):
         meta_file = folder / "data.json"
         if meta_file.exists():
             metadata_index[folder.name] = meta_file
-            
     print(f"Indexación completa. Se encontraron {len(metadata_index)} archivos de metadatos únicos.")
     return metadata_index
+
+def get_color_ids_from_furni_json(furni_json_path: Path) -> list:
+    """Extrae la lista de IDs de color disponibles desde el furni.json."""
+    if not furni_json_path.exists():
+        return ['0'] # Si no hay furni.json, asumimos una sola variante sin color.
+    
+    with open(furni_json_path, 'r') as f:
+        data = json.load(f)
+    
+    try:
+        # Intentar obtener colores de la visualización más común (64)
+        vis = data.get('visualization', {}).get('64', {})
+        if not vis: # Si no, probar con 32
+            vis = data.get('visualization', {}).get('32', {})
+        if not vis: # Si no, probar con la primera que encuentre
+             vis_keys = list(data.get('visualization', {}).keys())
+             if vis_keys:
+                vis = data['visualization'][vis_keys[0]]
+
+        colors = vis.get('colors', {})
+        if colors:
+            return sorted(colors.keys(), key=int) # Devuelve IDs de color ordenados
+    except (KeyError, AttributeError):
+        pass
+        
+    return ['0'] # Fallback si no se encuentran colores
 
 def process_single_furni(base_dir: Path, metadata_index: dict, project_root: Path, final_data_dir: Path):
     classname = base_dir.name
     
     try:
-        metadata_files = sorted([
-            path for name, path in metadata_index.items() 
-            if name == classname or name.startswith(classname + '_')
-        ])
-
-        if not metadata_files:
-            return ("skipped_no_metadata", classname)
-
+        # --- LÓGICA "ASSET-DRIVEN" ---
+        render_data_path = base_dir / "renderdata.json"
+        furni_json_path = base_dir / "furni.json"
         rendered_dir = base_dir / "rendered"
-        if not rendered_dir.is_dir() or not any(rendered_dir.glob("*_no_sd.png")):
+
+        if not render_data_path.exists() or not rendered_dir.is_dir() or not any(rendered_dir.glob("*_no_sd.png")):
             return ("skipped_no_renders", classname)
 
-        render_data_path = base_dir / "renderdata.json"
-        if not render_data_path.exists():
-            return ("skipped_no_renderdata", classname)
-    
+        # 1. Obtener la lista de variantes de color desde el propio furni
+        color_ids = get_color_ids_from_furni_json(furni_json_path)
+        
         with open(render_data_path, 'r') as f:
             render_data = json.load(f)
 
-        # --- LÓGICA MEJORADA PARA SELECCIONAR LA INFORMACIÓN BASE ---
-        # 1. Buscar un metadato "ideal" para la base (sin sufijo o con _0)
-        base_meta_path = None
-        for path in metadata_files:
-            # path.parent.name es el nombre de la carpeta, ej: 'rare_dragonlamp_0'
-            if path.parent.name == classname or path.parent.name == f"{classname}_0":
-                base_meta_path = path
-                break
-        
-        # 2. Si no se encuentra un ideal, usar el primero de la lista ordenada como fallback
-        if not base_meta_path:
-            base_meta_path = metadata_files[0]
-        
-        with open(base_meta_path, 'r', encoding='utf-8') as f:
-            base_meta = json.load(f).get("hotelData", {})
-        
-        if not base_meta:
-            return ("skipped_bad_metadata", classname)
+        merged_furni_data = {"variants": {}}
+        is_first_variant = True
 
-        base_id_from_api = (base_meta.get("classname") or classname).split('*')[0]
+        # 2. Iterar sobre las variantes definidas y buscar sus metadatos
+        for color_id in color_ids:
+            # Construir el nombre de la carpeta de metadatos que esperamos encontrar
+            # Ej: 'rare_dragonlamp' y color '0' -> 'rare_dragonlamp_0'
+            # Ej: 'table' y color '0' -> 'table' (sin color)
+            # Ej: 'ads_711' y color '1' -> 'ads_711_1'
+            metadata_key = classname if color_id == '0' and classname not in metadata_index else f"{classname}_{color_id}"
+            if metadata_key not in metadata_index:
+                 # Si no existe (ej. rare_dragonlamp_0), prueba sin el _0 (ej. rare_dragonlamp)
+                 if color_id == '0':
+                    metadata_key = classname
+                 else:
+                    continue # Si no es color 0 y no se encuentra, saltar esta variante
+            
+            meta_file_path = metadata_index.get(metadata_key)
+            if not meta_file_path:
+                continue
 
-        merged_furni_data = {
-            "base_id": base_id_from_api,
-            "name": base_meta.get('name', classname) or classname,
-            "description": base_meta.get('description', ''),
-            "dimensions": {"x": base_meta.get('xdim', 1), "y": base_meta.get('ydim', 1)},
-            "category": base_meta.get('category', 'unknown'),
-            "furni_line": base_meta.get('furni_line', 'unknown'),
-            "variants": {}
-        }
-        
-        for meta_file_path in metadata_files:
             with open(meta_file_path, 'r', encoding='utf-8') as f:
                 variant_meta = json.load(f).get("hotelData", {})
+            if not variant_meta:
+                continue
             
-            api_classname = variant_meta.get("classname") or classname
-            color_id = api_classname.split('*')[-1] if '*' in api_classname else "0"
+            # 3. Si es la primera variante válida, usar sus datos para el objeto base
+            if is_first_variant:
+                base_id_from_api = (variant_meta.get("classname") or classname).split('*')[0]
+                merged_furni_data.update({
+                    "base_id": base_id_from_api,
+                    "name": variant_meta.get('name', classname),
+                    "description": variant_meta.get('description', ''),
+                    "dimensions": {"x": variant_meta.get('xdim', 1), "y": variant_meta.get('ydim', 1)},
+                    "category": variant_meta.get('category', 'unknown'),
+                    "furni_line": variant_meta.get('furni_line', 'unknown'),
+                })
+                is_first_variant = False
 
+            # 4. Construir la entrada de la variante (lógica similar a la anterior)
+            api_classname = variant_meta.get("classname") or classname
+            
             icon_with_color_path = base_dir / f"{classname}_icon_{color_id}.png"
             icon_generic_path = base_dir / f"{classname}_icon.png"
             final_icon_path_obj = icon_with_color_path if icon_with_color_path.exists() else icon_generic_path
 
             variant_entry = {
-                "id": f"{base_id_from_api}_{color_id}" if color_id != "0" else base_id_from_api,
+                "id": f"{merged_furni_data['base_id']}_{color_id}" if color_id != "0" else merged_furni_data['base_id'],
                 "name": variant_meta.get("name") or api_classname,
                 "icon_path": f"2_extracted_swf_data/{classname}/{final_icon_path_obj.name}",
                 "renders": {}
@@ -103,9 +126,7 @@ def process_single_furni(base_dir: Path, metadata_index: dict, project_root: Pat
                 if render_key in render_data:
                     offset = render_data[render_key]
                     image_path_str = f"2_extracted_swf_data/{classname}/rendered/{render_key}.png"
-                    full_image_path = project_root / "assets" / image_path_str
-                    
-                    if full_image_path.exists():
+                    if (project_root / "assets" / image_path_str).exists():
                         variant_entry["renders"][str(rot_idx)] = {
                             "path": image_path_str.replace(os.sep, '/'),
                             "offset": {"x": offset["X"], "y": offset["Y"]}
@@ -114,15 +135,16 @@ def process_single_furni(base_dir: Path, metadata_index: dict, project_root: Pat
             if variant_entry["renders"]:
                 merged_furni_data["variants"][color_id] = variant_entry
 
+        # 5. Guardar solo si se encontró al menos una variante válida
         if merged_furni_data["variants"]:
-            output_dir = final_data_dir / base_id_from_api
+            output_dir = final_data_dir / merged_furni_data['base_id']
             output_dir.mkdir(exist_ok=True)
             output_path = output_dir / "data.json"
             with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(merged_furni_data, f, indent=2, sort_keys=True) # Añadido sort_keys para consistencia
+                json.dump(merged_furni_data, f, indent=2)
             return ("processed", classname)
         else:
-            return ("skipped_no_variants_found", classname)
+            return ("skipped_no_valid_variants", classname)
             
     except Exception:
         return ("error", classname, traceback.format_exc())
@@ -168,6 +190,11 @@ def process_all_furnis():
     
     if error_details:
         print(f"  - Furnis con errores: {len(error_details)}")
+        # (Descomentar para depuración)
+        # print("\n--- Mostrando los primeros 5 errores detallados ---")
+        # for i, (status, base_id, tb) in enumerate(error_details):
+        #     if i >= 5: break
+        #     print(f"\nERROR en el furni '{base_id}':\n{tb}")
 
 if __name__ == "__main__":
     process_all_furnis()

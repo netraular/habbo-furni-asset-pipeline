@@ -4,16 +4,40 @@ import shutil
 import os
 import argparse
 from pathlib import Path
+from dotenv import load_dotenv
 
-# --- 1. CONFIGURACIÓN DE RUTAS ---
+# --- Cargar variables de entorno desde .env ---
+load_dotenv()
+
+# --- 1. CONFIGURACIÓN DE RUTAS Y SECRETOS ---
 PROJECT_ROOT = Path(__file__).resolve().parent
 ASSETS_DIR = PROJECT_ROOT / "assets"
+# Dependencias
 DOWNLOADER_DIR = PROJECT_ROOT / "dependencies" / "habbo-asset-downloader"
 DOWNLOADER_SCRIPT = DOWNLOADER_DIR / "src" / "index.js"
+EXTRACTOR_PROJECT_DIR = PROJECT_ROOT / "dependencies" / "Habbo-SWF-Furni-Extractor"
+METADATA_DOWNLOADER_DIR = PROJECT_ROOT / "dependencies" / "habbo-furni-data-downloader"
+# Rutas de los Pasos
 FURNITURES_DOWNLOAD_DIR = ASSETS_DIR / "furnitures"
 GAMEDATA_DOWNLOAD_DIR = ASSETS_DIR / "gamedata"
-EXTRACTOR_PROJECT_DIR = PROJECT_ROOT / "dependencies" / "Habbo-SWF-Furni-Extractor"
 EXTRACTED_DATA_FINAL_DIR = ASSETS_DIR / "extracted"
+METADATA_RAW_DIR = ASSETS_DIR / "metadata_raw"
+METADATA_PROCESSED_DIR = ASSETS_DIR / "metadata_processed"
+
+# Cargar el Token desde las variables de entorno
+HABBOFURNI_API_TOKEN = os.getenv("HABBOFURNI_API_TOKEN")
+
+# --- Añadir el submodule al path de Python para poder importarlo ---
+sys.path.append(str(METADATA_DOWNLOADER_DIR))
+try:
+    from download_furni_data import download_furni_by_hotel, HOTELS
+    # --- LA LÍNEA CORREGIDA ESTÁ AQUÍ ---
+    from process_furni import process_and_save_furni, sanitize_filename
+except ImportError as e:
+    print(f"Error importando los scripts del submodule: {e}")
+    print("Asegúrate de que el submodule está en la ruta correcta y los archivos .py existen.")
+    sys.exit(1)
+
 
 def _reorganize_output(output_path: Path, expected_source_subdir: str):
     source_dir = output_path / expected_source_subdir
@@ -70,69 +94,71 @@ def run_downloader(command: str, output_path: Path, reorganize_from: str = None)
         sys.exit(1)
 
 def run_step_2_extract():
-    """Ejecuta el extractor de .NET para descomprimir los archivos SWF (Step 2)."""
-    print("\n--- [Step 2] Iniciando descompresión de archivos SWF ---")
-
+    print("\n--- [Step 2] Iniciando descompresión y renderizado de SWF ---")
     if not FURNITURES_DOWNLOAD_DIR.is_dir():
         print(f"ERROR: La carpeta de entrada '{FURNITURES_DOWNLOAD_DIR}' no existe. Ejecuta el Step 1 primero.")
         sys.exit(1)
-
     if EXTRACTED_DATA_FINAL_DIR.exists():
         print(f"Limpiando directorio de salida anterior: '{EXTRACTED_DATA_FINAL_DIR}'")
         shutil.rmtree(EXTRACTED_DATA_FINAL_DIR)
-    
     EXTRACTED_DATA_FINAL_DIR.mkdir(parents=True, exist_ok=True)
-
     print("Ejecutando el extractor de .NET... (esto puede tardar varios minutos)")
-    
-    # --- CAMBIO IMPORTANTE AQUÍ ---
-    # Añadimos el separador '--' para pasar los argumentos a la aplicación
     cmd_list = [
-        "dotnet", "run",
-        "--project", "SimpleExtractor.csproj",
-        "--", # <--- ESTE ES EL CAMBIO CLAVE
-        "-i", str(FURNITURES_DOWNLOAD_DIR),
-        "-o", str(EXTRACTED_DATA_FINAL_DIR)
+        "dotnet", "run", "--project", "SimpleExtractor.csproj", "--",
+        "-i", str(FURNITURES_DOWNLOAD_DIR), "-o", str(EXTRACTED_DATA_FINAL_DIR)
     ]
-
-    # --- AÑADIMOS PRINTS DE DEPURACIÓN ---
     print("-" * 50)
     print("Información de ejecución del Extractor:")
     print(f"  Directorio de trabajo: {EXTRACTOR_PROJECT_DIR}")
     print(f"  Comando a ejecutar: {' '.join(cmd_list)}")
     print("-" * 50)
-
     try:
         with subprocess.Popen(
-            cmd_list,
-            cwd=EXTRACTOR_PROJECT_DIR,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding='utf-8',
-            bufsize=1
+            cmd_list, cwd=EXTRACTOR_PROJECT_DIR, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, text=True, encoding='utf-8', bufsize=1
         ) as process:
             for line in process.stdout:
                 print(line, end='')
-        
         if process.returncode != 0:
             raise subprocess.CalledProcessError(process.returncode, process.args)
-
         print("\n--- Extracción completada con éxito. ---")
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        print(f"\nERROR: El extractor de .NET falló: {e}")
+        sys.exit(1)
+
+def run_step_3_fetch_metadata():
+    """Descarga y procesa metadata de la API de HabboFurni.com."""
+    print("\n--- [Step 3] Iniciando descarga de metadata desde API ---")
+
+    if not HABBOFURNI_API_TOKEN:
+        print("❌ ERROR: La variable de entorno 'HABBOFURNI_API_TOKEN' no está configurada.")
+        print("Por favor, crea un archivo .env en la raíz del proyecto y añade tu token.")
+        sys.exit(1)
     
-    except FileNotFoundError:
-        print("ERROR: El comando 'dotnet' no fue encontrado. Asegúrate de que .NET SDK está instalado.")
+    if METADATA_RAW_DIR.exists(): shutil.rmtree(METADATA_RAW_DIR)
+    if METADATA_PROCESSED_DIR.exists(): shutil.rmtree(METADATA_PROCESSED_DIR)
+    METADATA_RAW_DIR.mkdir()
+    
+    print("Descargando datos de Habbo.com...")
+    hotel_com = next((h for h in HOTELS if h["short_name"] == "COM"), None)
+    if not download_furni_by_hotel(hotel_com, HABBOFURNI_API_TOKEN, METADATA_RAW_DIR):
         sys.exit(1)
-    except subprocess.CalledProcessError:
-        print(f"\nERROR: El extractor de .NET falló.")
+    
+    print("\nDescargando datos de Habbo.es...")
+    hotel_es = next((h for h in HOTELS if h["short_name"] == "ES"), None)
+    if not download_furni_by_hotel(hotel_es, HABBOFURNI_API_TOKEN, METADATA_RAW_DIR):
         sys.exit(1)
+
+    print("\nProcesando y fusionando los datos descargados...")
+    if not process_and_save_furni(METADATA_RAW_DIR, METADATA_PROCESSED_DIR):
+        sys.exit(1)
+    
+    print("\n--- Metadata descargada y procesada con éxito. ---")
 
 def main():
     parser = argparse.ArgumentParser(description="Pipeline de orquestación para activos de Habbo.")
     parser.add_argument(
-        '--start-at',
-        type=int,
-        default=1,
+        '--start-at', type=int, default=1,
         help='El número del paso por el cual empezar el pipeline (ej: 2 para saltar la descarga).'
     )
     args = parser.parse_args()
@@ -147,6 +173,9 @@ def main():
     
     if args.start_at <= 2:
         run_step_2_extract()
+        
+    if args.start_at <= 3:
+        run_step_3_fetch_metadata()
 
     print("\n==========================================")
     print("=      PIPELINE COMPLETADO CON ÉXITO     =")

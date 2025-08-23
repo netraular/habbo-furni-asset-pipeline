@@ -23,20 +23,21 @@ This initial step is responsible for fetching the raw asset files from Habbo ser
 This crucial step processes the raw SWF files, extracting their content, rendering assets, and generating structured data files.
 
 *   It uses the **[Habbo-SWF-Furni-Extractor](https://github.com/netraular/Habbo-SWF-Furni-Extractor)** project, a custom .NET tool managed as a submodule.
-*   The tool processes all files from `/assets/furnitures` and produces a structured output in `/assets/extracted`, which includes:
-    *   Rendered PNGs of the furni assets.
-    *   `furni.json`: Contains merged XML data describing the furni's logic.
-    *   `renderdata.json`: Contains data needed to reconstruct and render the furni isometrically.
+*   The tool processes all files from `/assets/furnitures` and produces a structured output in `/assets/extracted`.
 
 > **Status:** **Fully implemented** in `pipeline.py`.
 
 ---
 
-### 🔲 Step 3: Fetch Metadata from Web API
+### ✅ Step 3: Fetch Metadata from Web API
 
-To enrich the local data, this step will fetch additional metadata (like release dates, categories, etc.) from an external web API.
+To enrich the local data, this step fetches additional metadata (like release dates, categories, etc.) from the **[habbofurni.com API](https://habbofurni.com/)**.
 
-> **Status:** Not yet implemented.
+*   It uses the **[habbo-furni-data-downloader](https://github.com/netraular/habbo-furni-data-downloader)** project, a custom Python tool managed as a submodule.
+*   The pipeline automatically downloads the necessary data from the `.com` and `.es` hotels.
+*   It then processes and merges this data, creating a structured database in `/assets/metadata_processed`, where each furni has its own folder containing a `data.json` file.
+
+> **Status:** **Fully implemented** in `pipeline.py`.
 
 ---
 
@@ -51,7 +52,6 @@ This is the final data processing step. A custom script will merge the informati
 ---
 
 ### Final Output Consumer
-(Section remains the same)
 
 ## Getting Started
 
@@ -74,41 +74,55 @@ This is the final data processing step. A custom script will merge the informati
     cd habbo-furni-asset-pipeline
     ```
 
-3.  **Install the downloader's dependencies:**
+3.  **Install Node.js dependencies:**
     ```sh
-    cd dependencies/habbo-asset-downloader
-    npm install
-    cd ../..
+    cd dependencies/habbo-asset-downloader && npm install && cd ../..
+    ```
+
+4.  **Install Python dependencies:**
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+5.  **Configure API Token:**
+    *   Rename the `.env.example` file in the project root to `.env`.
+    *   Open the `.env` file and add your API token from `habbofurni.com`.
+    ```env
+    HABBOFURNI_API_TOKEN="your_token_here"
     ```
 
 ## Usage
 
 You can run the entire pipeline or start from a specific step using the `--start-at` argument.
 
-#### Run the entire pipeline (from Step 1)
+#### Run the entire pipeline
 ```sh
 python pipeline.py
 ```
 
-#### Skip downloads and start from Step 2 (Extraction)
-This is useful if you have already downloaded the assets.
+#### Skip to Step 2 (Extraction & Rendering)
 ```sh
 python pipeline.py --start-at 2
+```
+
+#### Skip to Step 3 (Metadata Download)
+```sh
+python pipeline.py --start-at 3
 ```
 
 ## Maintaining the Pipeline
 
 ### Updating Dependencies (Submodules)
 
-The submodules in the `dependencies` folder are pinned to a specific commit. If you update one of the dependency projects on GitHub (e.g., you push a new version of `Habbo-SWF-Furni-Extractor`), the pipeline won't use it automatically.
+The submodules in the `dependencies` folder are pinned to a specific commit. If you update one of the dependency projects on GitHub, the pipeline won't use it automatically.
 
-To pull the latest version of a submodule into the pipeline, run the following command from the project's root directory:
+To pull the latest version of a submodule, run the following command from the project's root directory:
 
 ```sh
 git submodule update --remote
 ```
 
-After running the update, you will see that the submodule reference has changed. You must then commit and push this change to save it:
+After running the update, you must commit and push the change to save the new reference:
 
 ```sh
 git add .

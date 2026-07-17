@@ -1,5 +1,11 @@
 # Habbo Furni Asset Pipeline
 
+> **One command to download every Habbo furni and export it as PNG.**
+> Orchestrates three tools as submodules — [downloader](https://github.com/netraular/habbo-asset-downloader)
+> (raw `.swf`) → [extractor](https://github.com/netraular/Habbo-SWF-Furni-Extractor)
+> (PNG/GIF renders) → [data-downloader](https://github.com/netraular/habbo-furni-data-downloader)
+> (API metadata) — and merges everything into self-contained furni packages.
+
 An automated pipeline to download, process, and organize Habbo Hotel assets. This project orchestrates a multi-step workflow to transform raw game files into a structured, application-ready format.
 
 The entire process is managed by `pipeline.py`, which executes a 4-step workflow. Each step prepares data for the next, with the final goal of producing a comprehensive and easy-to-use set of assets. The output directories are prefixed with the step number (`1_`, `2_`, etc.) to clearly show the data flow.

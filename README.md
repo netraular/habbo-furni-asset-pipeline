@@ -104,7 +104,7 @@ This is the final and most important step. It merges all data and assets from th
 
 ## Usage
 
-You can run the entire pipeline or start from a specific step using the `--start-at` argument.
+You can run the entire pipeline or a subset of steps using the `--start-at` and `--stop-at` arguments (both default to running steps 1–4).
 
 #### Run the entire pipeline
 ```sh
@@ -113,6 +113,12 @@ python pipeline.py
 #### Run only the final merge (Step 4)
 ```sh
 python pipeline.py --start-at 4
+```
+#### Generate only the PNG renders (Steps 1–2, no API token needed)
+Steps 3 and 4 require a `habbofurni.com` API token. If you only want the rendered
+PNG/GIF assets, stop after Step 2:
+```sh
+python pipeline.py --stop-at 2
 ```
 
 ## Maintaining the Pipeline

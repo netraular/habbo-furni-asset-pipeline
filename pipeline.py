@@ -176,23 +176,31 @@ def main():
         '--start-at', type=int, default=1, choices=[1, 2, 3, 4],
         help='El número del paso por el cual empezar el pipeline (1: Descarga, 2: Extracción, 3: Metadata, 4: Fusión).'
     )
+    parser.add_argument(
+        '--stop-at', type=int, default=4, choices=[1, 2, 3, 4],
+        help='El número del último paso a ejecutar (por defecto 4). Ej: --stop-at 2 genera solo los renders PNG '
+             'sin necesitar el token de la API (pasos 3 y 4).'
+    )
     args = parser.parse_args()
-    
+
+    if args.stop_at < args.start_at:
+        parser.error(f"--stop-at ({args.stop_at}) no puede ser menor que --start-at ({args.start_at}).")
+
     print("==========================================")
     print("=      INICIO DEL PIPELINE DE ACTIVOS    =")
-    print(f"=      Empezando desde el paso: {args.start_at}      =")
+    print(f"=      Ejecutando pasos {args.start_at} a {args.stop_at}          =")
     print("==========================================")
 
-    if args.start_at <= 1:
+    if args.start_at <= 1 <= args.stop_at:
         run_step_1_download()
-    
-    if args.start_at <= 2:
+
+    if args.start_at <= 2 <= args.stop_at:
         run_step_2_extract()
-        
-    if args.start_at <= 3:
+
+    if args.start_at <= 3 <= args.stop_at:
         run_step_3_fetch_metadata()
 
-    if args.start_at <= 4:
+    if args.start_at <= 4 <= args.stop_at:
         run_step_4_merge_data()
 
     print("\n==========================================")
